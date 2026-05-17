@@ -19,6 +19,8 @@ add_executable(clone_detector
     src/ir_parser/IRParser.cpp
     src/fingerprint/Fingerprint.cpp
     src/similarity/SimilarityEngine.cpp
+    src/normalizer/Normalizer.cpp
+    src/cfg_builder/CFGBuilder.cpp
 )
 
 llvm_map_components_to_libnames(llvm_libs

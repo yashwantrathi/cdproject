@@ -5,43 +5,43 @@
 LLVM Clone Detection System is a compiler-based cross-language code clone detection framework that analyzes LLVM Intermediate Representation (IR) to identify semantically similar functions across source programs.
 
 The project performs:
-- LLVM IR parsing
-- Function fingerprinting
-- CFG extraction
-- Similarity analysis
-- Clone detection
-- Visualization and analytics
+* LLVM IR parsing
+* Function fingerprinting
+* CFG extraction
+* Similarity analysis
+* Clone detection
+* Visualization and analytics
 
 ---
 
 # Features
 
-- LLVM IR Parsing
-- Function Fingerprinting
-- Opcode Normalization
-- CFG (Control Flow Graph) Extraction
-- CFG Graph Visualization
-- Similarity Scoring
-- Clone Detection
-- Batch Testing
-- CSV Export
-- Heatmap Visualization
-- Similarity Analytics Graphs
-- Threshold Configuration
-- Verbose Debug Mode
+* LLVM IR Parsing
+* Function Fingerprinting
+* Opcode Normalization
+* CFG (Control Flow Graph) Extraction
+* CFG Graph Visualization
+* Similarity Scoring
+* Clone Detection
+* Batch Testing
+* CSV Export
+* Heatmap Visualization
+* Similarity Analytics Graphs
+* Threshold Configuration
+* Verbose Debug Mode
 
 ---
 
 # Tech Stack
 
-- C++
-- LLVM 18
-- CMake
-- Graphviz
-- Python
-- Pandas
-- Matplotlib
-- Seaborn
+* C++
+* LLVM 18
+* CMake
+* Graphviz
+* Python
+* Pandas
+* Matplotlib
+* Seaborn
 
 ---
 
@@ -177,11 +177,11 @@ Example:
 
 Generated outputs:
 
-- results/output.txt
-- results/results.csv
-- CFG graph images
-- similarity_heatmap.png
-- similarity_bar.png
+* results/output.txt
+* results/results.csv
+* CFG graph images
+* similarity_heatmap.png
+* similarity_bar.png
 
 ---
 
@@ -194,8 +194,8 @@ python visualize.py
 ```
 
 This generates:
-- Similarity Heatmap
-- Similarity Bar Graph
+* Similarity Heatmap
+* Similarity Bar Graph
 
 ---
 
@@ -208,8 +208,8 @@ results/
 ```
 
 Example:
-- cfg_add.png
-- cfg_loopSum.png
+* cfg_add.png
+* cfg_loopSum.png
 
 ---
 
@@ -227,12 +227,12 @@ Example:
 
 # Future Scope
 
-- Rust Support
-- Data Flow Graph Analysis
-- AST-based Clone Detection
-- GUI/Web Dashboard
-- ML-based Similarity Detection
-- Advanced Graph Similarity
+* Rust Support
+* Data Flow Graph Analysis
+* AST-based Clone Detection
+* GUI/Web Dashboard
+* ML-based Similarity Detection
+* Advanced Graph Similarity
 
 ---
 
@@ -245,3 +245,24 @@ Yashwanth Rathi
 # License
 
 Academic Project
+---
+
+# Screenshots
+
+## CFG Visualization
+
+### Loop CFG
+
+![CFG](screenshots/cfg_loopSum.png)
+
+---
+
+# Similarity Heatmap
+
+![Heatmap](screenshots/similarity_heatmap.png)
+
+---
+
+# Similarity Analytics
+
+![BarGraph](screenshots/similarity_bar.png)

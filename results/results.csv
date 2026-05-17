@@ -1,0 +1,11 @@
+Function1,Function2,Similarity,Clone
+add,sum,100,YES
+add,loopSum,0,NO
+add,add,100,YES
+add,multiply,50,NO
+sum,loopSum,0,NO
+sum,add,100,YES
+sum,multiply,50,NO
+loopSum,add,0,NO
+loopSum,multiply,0,NO
+add,multiply,50,NO

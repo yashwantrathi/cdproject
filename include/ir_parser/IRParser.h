@@ -8,7 +8,7 @@
 
 class IRParser {
 public:
-    void parseFile(const std::string& filename);
+    void parseFile(const std::string& filename, bool verbose=false);
 
     std::vector<Fingerprint> getFingerprints();
 
