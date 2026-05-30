@@ -1,4 +1,0 @@
-loopSum vs loopSum
-Similarity: 100%
-Clone Detected!
-

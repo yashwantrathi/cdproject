@@ -1,251 +1,224 @@
-# DESIGN DOCUMENT
+# DESIGN.md — IRClone: Cross-Language LLVM Clone Detector
 
-# LLVM Clone Detection System
-
----
-
-# 1. Introduction
-
-The LLVM Clone Detection System is a compiler-based framework designed to detect semantically similar code fragments using LLVM Intermediate Representation (IR).
-
-Traditional source-level clone detection systems are language-specific and highly dependent on syntax. This project uses LLVM IR as a language-agnostic intermediate layer to analyze program structure and behavior across multiple programming languages.
-
-The system focuses on:
-- LLVM IR parsing
-- Function fingerprinting
-- Opcode normalization
-- CFG extraction
-- Similarity scoring
-- Clone detection analytics
+> *This document covers the system architecture, design rationale, key algorithmic decisions, and alternatives considered during the development of IRClone.*
 
 ---
 
-# 2. System Architecture
+## 1. Problem Statement
 
-The system follows a modular pipeline architecture.
+Existing clone detection tools (NiCad, CCFinder, SourcererCC) operate on source text or language-specific ASTs. This makes them fundamentally incapable of detecting **semantic clones across language boundaries** — for example, recognising that a C bubble sort and a Fortran bubble sort implement the same algorithm.
 
-```text
-Source Code
-     ↓
-LLVM IR Generation
-     ↓
-IR Parser
-     ↓
-Opcode Normalization
-     ↓
-Fingerprint Extraction
-     ↓
-CFG Builder
-     ↓
-Similarity Engine
-     ↓
-Clone Detection
-     ↓
-Visualization & Analytics
+The root cause: source code is syntax, and syntax is language-specific.
+
+**IRClone's answer:** move the comparison layer down to **LLVM Intermediate Representation (IR)** — the compiler's internal bytecode that all LLVM-frontend languages share. At this level, a 32-bit addition is always `add i32`, an array load is always `getelementptr` followed by `load`, and a conditional branch is always `br i1`. The surface syntax of the source language becomes irrelevant.
+
+---
+
+## 2. System Architecture
+
+IRClone follows a **linear analysis pipeline** with clearly separated, independently testable modules.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                          INPUT LAYER                             │
+│   Source files: .c / .cpp / .rs / .f90                          │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    COMPILATION LAYER                             │
+│   clang / clang++ / rustc --emit=llvm-ir / flang-new            │
+│   Produces: function1.ll, function2.ll                           │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    NORMALIZATION LAYER                           │
+│   IRNormalizer.cpp                                               │
+│   • Strip debug info (!dbg, !tbaa, !llvm.dbg.*)                 │
+│   • Remove attributes (nounwind, uwtable, mustprogress...)       │
+│   • Filter external declarations (core::, std::, _ZN...)        │
+│   • Strip Rust panic/unwind infrastructure                       │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    FINGERPRINT LAYER                             │
+│                                                                  │
+│  ┌────────────────────┐    ┌────────────────────────────────┐   │
+│  │    CFG Builder     │    │         DFG Builder            │   │
+│  │                    │    │                                │   │
+│  │  • Basic blocks    │    │  • Instruction* → node ID map  │   │
+│  │  • Successor edges │    │  • Use-def edges               │   │
+│  │  • Cyclomatic CC   │    │  • Output: DOT + PNG           │   │
+│  │  • Opcode freq map │    │                                │   │
+│  └────────┬───────────┘    └───────────────┬────────────────┘   │
+│           │                                │                    │
+│           └────────────┬───────────────────┘                    │
+│                        │  Combined Fingerprint                   │
+└────────────────────────┼───────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    SIMILARITY ENGINE                             │
+│   • Cosine similarity on opcode frequency vectors               │
+│   • CFG structural weight (node/edge count delta)               │
+│   • Threshold classification: Strong / Partial / Different      │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                       OUTPUT LAYER                               │
+│   CLI (stdout)  •  CSV (results/)  •  Graphviz PNGs             │
+│   Web Dashboard (React + Flask)    •  Heatmap / Bar charts       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# 3. Design Goals
+## 3. Core Design Decisions
 
-The main design goals are:
+### 3.1 Why LLVM IR and not ASTs?
 
-- Language-independent analysis
-- Modular architecture
-- Extensible clone detection pipeline
-- Efficient similarity comparison
-- Visualization support
-- Research-oriented evaluation
+| Approach | Pros | Cons |
+|---|---|---|
+| Source-level text | Simple, fast | Syntax-dependent, language-specific |
+| Language ASTs | Rich structural info | Each language needs a separate parser |
+| **LLVM IR** | **Language-agnostic, compiler-validated** | **Verbose IR; normalization required** |
+| Bytecode (JVM/WASM) | Compact | Limited language support |
+| Machine code | Truly binary-level | Too low-level; register allocation noise |
 
----
+LLVM IR sits at the ideal abstraction level: above hardware-specific details, but below language-specific syntax. Every major systems language (C, C++, Rust, Fortran, Swift, Zig, Kotlin Native) has an LLVM frontend, making it the most broadly applicable choice.
 
-# 4. LLVM IR Based Design
+### 3.2 Why Opcode Frequency Vectors?
 
-LLVM IR acts as a normalized intermediate representation between source code and machine code.
+Opcode frequency vectors represent each function as a histogram of instruction types (e.g., `{add: 3, load: 7, store: 4, icmp: 2, br: 3}`). This was chosen over raw opcode sequences because:
 
-Advantages of LLVM IR:
-- Language-independent representation
-- Simplified instruction format
-- Compiler-level analysis capability
-- Easier CFG extraction
-- Easier normalization
+- **Order-invariant:** Two implementations of the same algorithm might emit the same opcodes in a slightly different order depending on the compiler's instruction scheduling.
+- **Compact:** A vector of ~50 LLVM opcode types compresses an arbitrarily large function into a fixed-length representation.
+- **Cosine similarity:** Cosine similarity on frequency vectors is well-understood, parameter-free, and handles functions of different sizes gracefully (unlike Hamming distance).
 
-LLVM IR allows the system to compare programs based on semantic operations instead of source syntax.
+The primary weakness is that frequency vectors are **topology-blind** — two completely different algorithms can produce similar histograms if they happen to use the same primitive operations (e.g., Bubble Sort vs Merge Sort both do heavy `load`/`store`). This is mitigated by the CFG structural weight component.
 
----
+### 3.3 CFG Structural Weighting
 
-# 5. IR Parser Design
+The final similarity score blends two signals:
 
-The IR Parser module:
-- Loads LLVM IR files
-- Traverses functions
-- Traverses basic blocks
-- Extracts instructions
-- Builds function-level fingerprints
-
-The parser ignores:
-- External declarations
-- Compiler metadata
-- Non-semantic attributes
-
----
-
-# 6. Fingerprinting Design
-
-Each function is represented as a sequence of LLVM opcode instructions.
-
-Example:
-
-```text
-alloca
-store
-load
-add
-ret
+```
+final_score = (0.7 × opcode_cosine_similarity) + (0.3 × cfg_topology_score)
 ```
 
-The fingerprint acts as a compact representation of program behavior.
+The `cfg_topology_score` is computed as:
 
-Advantages:
-- Lightweight
-- Easy comparison
-- Language-agnostic
-- Suitable for similarity analysis
+```
+cfg_topology_score = 1.0 - (|Δnodes| + |Δedges|) / (max_nodes + max_edges)
+```
 
----
+This penalizes pairs where one function has a nested loop (4–5 nodes) and the other is a simple linear function (1–2 nodes), even if their opcode distributions happen to be similar.
 
-# 7. Opcode Normalization
+### 3.4 Data Flow Graph Design
 
-Normalization removes language-specific variations from LLVM IR.
+The DFG captures **instruction-level use-def dependencies**. Each LLVM `Instruction*` is assigned a stable unique ID (via a `std::map<Instruction*, std::string>`), and a directed edge `A → B` is drawn whenever B is an operand of A. This produces a clean dependency graph showing exactly which computations feed into which — useful for visually verifying that two functions have the same computational backbone.
 
-The normalization module:
-- Simplifies instruction representation
-- Removes irrelevant metadata
-- Produces stable fingerprints
+An early design used index-based IDs, which produced disconnected graphs when IR instructions were non-linearly ordered. The `Instruction*` pointer-keyed map fixed this by guaranteeing stable IDs regardless of traversal order.
 
-This improves clone detection consistency across programs.
+### 3.5 Normalization Strategy
 
----
+LLVM IR varies significantly between languages even for equivalent logic:
 
-# 8. CFG Extraction Design
+| IR Pattern | Language | Action |
+|---|---|---|
+| `!dbg`, `!tbaa`, `!srcloc` metadata | All | Strip entirely |
+| `nounwind`, `uwtable`, `mustprogress` attrs | All | Strip entirely |
+| `_ZN` (C++ mangled names) | C++ | Keep, normalize function name for display |
+| `core::panicking`, `core::slice::` calls | Rust | Strip call instructions |
+| Rust bounds-check `br i1` blocks | Rust | Keep (causes known FN with C) |
+| Fortran array descriptor temporaries | Fortran | Strip allocas for descriptors |
 
-The CFG Builder extracts Control Flow Graphs from LLVM functions.
-
-Each:
-- Basic block → node
-- Control transfer → edge
-
-The system exports CFGs as:
-- DOT files
-- PNG graph images
-
-Advantages:
-- Visual understanding
-- Structural analysis
-- Research-oriented visualization
+The normalization deliberately does **not** strip branch instructions added by Rust's safety checks, because doing so would incorrectly inflate Rust/C similarity. This is an acknowledged limitation documented in the evaluation.
 
 ---
 
-# 9. Similarity Engine Design
+## 4. Module Breakdown
 
-The similarity engine compares function fingerprints using opcode sequence matching.
+### `IRParser` (`src/ir_parser/`)
+Loads an LLVM IR file using `llvm::parseIRFile()`, traverses all non-declaration functions, and hands them to the fingerprint modules.
 
-Current implementation:
-- Exact opcode matching
-- Percentage similarity scoring
+### `IRNormalizer` (`src/normalizer/`)
+A pre-processing pass over the raw IR that filters metadata, strips attributes, and removes external function declarations to produce a stable, language-neutral IR representation.
 
-Clone decision:
-- Similarity >= threshold → clone detected
+### `Fingerprint` (`src/fingerprint/`)
+Extracts the opcode frequency map for a given function. Stores metadata: function name, source file path, total instruction count, and the frequency vector.
 
-Default threshold:
-- 70%
+### `CFGBuilder` (`src/cfg_builder/`)
+Traverses a function's `BasicBlock` list, extracts successor edges using `llvm::successors(&BB)`, computes cyclomatic complexity (`edges - nodes + 2`), and writes a DOT file. Invokes `dot -Tpng` via `system()` to generate the PNG.
 
----
+### `DFGBuilder` (`src/dfg_builder/`)
+Assigns a unique string ID to each `Instruction*`, then iterates over each instruction's `Use` list to draw `operand → user` edges. Writes to DOT and renders PNG.
 
-# 10. Batch Testing Design
+### `SimilarityEngine` (`src/similarity/`)
+Takes two `Fingerprint` objects and computes cosine similarity on their opcode maps, then blends with the CFG topology score. Returns a `ComparisonResult` containing the score, label, and source metadata.
 
-Batch mode automatically compares multiple LLVM IR files.
-
-Advantages:
-- Large-scale evaluation
-- Faster testing
-- Research-style experimentation
-- Automated analytics generation
-
-Outputs:
-- CSV reports
-- Text reports
-- Heatmaps
-- Similarity graphs
+### `main.cpp`
+Orchestrates the full pipeline, handles CLI flag parsing (`--cfg`, `--dfg`, `--threshold`, `--verbose`), and formats the final output table.
 
 ---
 
-# 11. Visualization Design
+## 5. Web Architecture
 
-Python-based visualization is used for analytics.
+The web component is decoupled from the analysis engine via a REST API.
 
-Libraries:
-- Pandas
-- Matplotlib
-- Seaborn
+```
+React Frontend (Vite, port 5173)
+        │
+        │  HTTP POST /api/upload
+        │  HTTP POST /api/compare_testcases
+        │  HTTP POST /api/generate_graph
+        │  HTTP GET  /api/testcases
+        │
+Flask Backend (port 5000)
+        │
+        │  subprocess.run(['clang', '-S', '-emit-llvm', ...])
+        │  subprocess.run(['./build/clone_detector', ...])
+        │
+clone_detector binary (C++ / LLVM)
+```
 
-Generated outputs:
-- Similarity heatmaps
-- Similarity bar graphs
-
-These visualizations improve evaluation and presentation quality.
-
----
-
-# 12. Alternative Approaches Considered
-
-## Source-Level Clone Detection
-
-Rejected because:
-- Language-specific
-- Syntax-dependent
-- Harder normalization
-
-## AST-Based Analysis
-
-Possible alternative:
-- Better structural understanding
-- Higher complexity
-
-## Machine Learning Based Detection
-
-Possible future enhancement:
-- Semantic learning
-- Better accuracy
-- Requires training datasets
+The Flask backend manages the compilation step (invoking `clang`/`rustc`/`flang-new`), calls the compiled binary, parses its stdout, and returns JSON to the React frontend.
 
 ---
 
-# 13. Limitations
+## 6. Alternative Approaches Considered and Rejected
 
-Current limitations:
-- Basic similarity algorithm
-- Limited semantic analysis
-- LLVM version compatibility issues
-- No advanced DFG analysis
-- Limited optimization-aware comparison
+### 6.1 AST-Level Clone Detection
+**Rejected.** ASTs are language-specific by definition. Building AST parsers for four different languages (C, C++, Rust, Fortran) would require four separate, non-trivial parser implementations. LLVM IR provides the same semantic information without per-language parsers.
 
----
+### 6.2 Token-Based Clone Detection
+**Rejected.** Token streams can detect Type-1 (exact) and Type-2 (renamed variable) clones but are completely blind to Type-3 (structural) and Type-4 (semantic) clones — which are the most interesting and the entire motivation of this project.
 
-# 14. Future Enhancements
+### 6.3 Graph Edit Distance (GED)
+**Considered but deferred.** GED on CFGs would give perfect structural comparison but runs in exponential time in the general case. The current cosine + topology hybrid runs in O(n) per function pair. GED is listed as a future improvement.
 
-Possible future improvements:
-- Rust support
-- DFG extraction
-- Graph similarity algorithms
-- ML-based clone classification
-- Web dashboard
-- Interactive visual analytics
+### 6.4 ML-Based Embedding (Code2Vec / InferCode)
+**Considered for future work.** Training a model to embed functions into a latent space where similarity is a distance metric would handle optimization-level variation and type-widening clones. Requires a labelled dataset of cross-language clone pairs, which this project's benchmark corpus could eventually seed.
 
 ---
 
-# 15. Conclusion
+## 7. Scalability Considerations
 
-The LLVM Clone Detection System demonstrates how compiler intermediate representations can be used for language-independent clone detection.
+| Aspect | Current State | Path to Scale |
+|---|---|---|
+| Comparison complexity | O(n²) pairwise | Locality-sensitive hashing (LSH) to prune candidates |
+| Function count per file | Unbounded | Parallelise per-function analysis with OpenMP |
+| Web uploads | Local temp files | S3/MinIO for file storage |
+| Graph rendering | Synchronous `system()` | Async task queue (Celery + Redis) |
 
-The modular architecture allows future expansion into advanced program analysis and research-oriented compiler tooling.
+---
+
+## 8. Summary
+
+IRClone's core design principle is *"compare programs where their languages are already equal"*. By moving the comparison layer to LLVM IR, the project achieves genuine language-independence without sacrificing semantic depth. The modular pipeline ensures each stage can be replaced, improved, or extended independently — the similarity engine is not aware of the IR parser, and the web layer is not aware of the compilation details.
+
+---
+
+*See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the LLVM API-level details of each module.*

@@ -12,6 +12,8 @@ public:
 
     std::vector<Fingerprint> getFingerprints();
 
+    void generateGraph(const std::string& filename, const std::string& targetFunction, bool isCFG);
+
 private:
     std::vector<Fingerprint> fingerprints;
 };

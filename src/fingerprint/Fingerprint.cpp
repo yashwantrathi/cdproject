@@ -26,3 +26,21 @@ std::vector<std::string> Fingerprint::getInstructions() {
 std::string Fingerprint::getFunctionName() {
     return functionName;
 }
+void Fingerprint::setSourceFile(
+    const std::string& file
+) {
+    sourceFile = file;
+}
+
+std::string Fingerprint::getSourceFile() {
+    return sourceFile;
+}
+void Fingerprint::setFingerprintHash(
+    const std::string& hash
+) {
+    fingerprintHash = hash;
+}
+
+std::string Fingerprint::getFingerprintHash() {
+    return fingerprintHash;
+}

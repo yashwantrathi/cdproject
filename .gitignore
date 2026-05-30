@@ -1,4 +1,39 @@
+# Build directories
 build/
-*.o
-*.out
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# Web Frontend
+web/frontend/node_modules/
+web/frontend/dist/
+web/frontend/.DS_Store
+web/frontend/.env.local
+web/frontend/.env.development.local
+web/frontend/.env.test.local
+web/frontend/.env.production.local
+
+# Web Backend
+web/backend/venv/
+web/backend/env/
+web/backend/__pycache__/
+web/backend/*.pyc
+web/backend/.pytest_cache/
+web/backend/uploads/
+
+# Generated Files and Data
+results/*.png
+results/*.dot
+results/*.csv
+results/*.txt
+results/cfg_graphs/
+results/dfg_graphs/
 *.ll
+*.bc
+*.s
+
+# OS specific
+.DS_Store
+Thumbs.db

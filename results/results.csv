@@ -1,11 +1,15 @@
 Function1,Function2,Similarity,Clone
-add,sum,100,YES
-add,loopSum,0,NO
-add,add,100,YES
-add,multiply,50,NO
-sum,loopSum,0,NO
-sum,add,100,YES
-sum,multiply,50,NO
-loopSum,add,0,NO
-loopSum,multiply,0,NO
-add,multiply,50,NO
+"add","sum",100,Strong Clone
+"bubbleSort","sortArray(int*, int)",100,Strong Clone
+"add","add_",74.7933,Strong Clone
+"bubbleSort","bubblesort_",68.1733,Strong Clone
+"add","add",28.2509,Partial Similarity
+"bubbleSort","bubbleSort",66.8158,Strong Clone
+"selectionSort","selectionSort",72.0899,Strong Clone
+"bubbleSort","selectionSort",84.5142,Strong Clone
+"bubbleSort","mergeSort(int*, int, int)",49.4745,Partial Similarity
+"add","bubblesort_",25.2003,Partial Similarity
+"merge(std::vector<int, std::allocator<int>>&, int, int, int)","selection_sort(std::vector<int, std::allocator<int>>&)",41.9926,Partial Similarity
+"merge_sort(std::vector<int, std::allocator<int>>&, int, int)","selection_sort(std::vector<int, std::allocator<int>>&)",58.8747,Partial Similarity
+"merge(std::vector<int, std::allocator<int>>&, int, int, int)","selection_sort(std::vector<int, std::allocator<int>>&)",41.9926,Partial Similarity
+"merge_sort(std::vector<int, std::allocator<int>>&, int, int)","selection_sort(std::vector<int, std::allocator<int>>&)",58.8747,Partial Similarity

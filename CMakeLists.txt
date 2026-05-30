@@ -21,6 +21,7 @@ add_executable(clone_detector
     src/similarity/SimilarityEngine.cpp
     src/normalizer/Normalizer.cpp
     src/cfg_builder/CFGBuilder.cpp
+    src/dfg_builder/DFGBuilder.cpp
 )
 
 llvm_map_components_to_libnames(llvm_libs

@@ -1,0 +1,8 @@
+{
+  "files": [
+    "benchmark/sorting/bubble_sort.c",
+    "benchmark/sorting/bubble_sort.cpp",
+    "benchmark/sorting/bubble_sort.rs",
+    "benchmark/sorting/bubble_sort.f90"
+  ]
+}
