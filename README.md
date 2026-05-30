@@ -14,7 +14,7 @@
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react)](https://react.dev)
 [![License](https://img.shields.io/badge/License-Academic-purple?style=flat-square)](./LICENSE)
 
-**Demo:** `[INSERT DEMO VIDEO LINK HERE]` &nbsp;|&nbsp; **Drive:** `[INSERT GOOGLE DRIVE LINK HERE]`
+**Demo:** `https://drive.google.com/file/d/1EVEKz6jcDFVGKYajh-b7APhcWPdRoN9Z/view?usp=sharing` &nbsp;|&nbsp; **Drive:** `[INSERT GOOGLE DRIVE LINK HERE]`
 
 </div>
 
